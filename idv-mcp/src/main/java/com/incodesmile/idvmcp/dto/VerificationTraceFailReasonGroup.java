@@ -1,0 +1,16 @@
+package com.incodesmile.idvmcp.dto;
+
+public enum VerificationTraceFailReasonGroup {
+    ID_DOC_VALIDATION,
+    PROOF_OF_PERSONHOOD,
+    FACE_RECOGNITION,
+    PHONE_NUMBER_VERIFICATION,
+    DATA_CONSENT,
+    GOVERNMENT_VALIDATION,
+    EMP_DIR_USER_NOT_FOUND,
+    NAME_MATCH,
+    EXPIRED,
+    INVALID_QR,
+    USER_CONFIRMATION,
+    OTHER
+}
