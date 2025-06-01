@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acme Bank</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>ACME BANK</h1>
+    </header>
+
+    <main>
+        <section class="balance-section">
+            <h2>Account Balance</h2>
+            <div class="balance" id="balance">$0.00</div>
+        </section>
+
+        <section class="actions-section">
+            <div class="action-card">
+                <h3>Deposit</h3>
+                <div class="input-group">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" id="deposit-amount" placeholder="Amount" min="0" step="0.01">
+                </div>
+                <button id="deposit-btn" class="action-btn deposit-btn">Deposit</button>
+                <div id="deposit-message" class="message"></div>
+            </div>
+
+            <div class="action-card">
+                <h3>Withdraw</h3>
+                <div class="input-group">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" id="withdraw-amount" placeholder="Amount" min="0" step="0.01">
+                </div>
+                <button id="withdraw-btn" class="action-btn withdraw-btn">Withdraw</button>
+                <div id="withdraw-message" class="message"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Acme Bank. All rights reserved.</p>
+    </footer>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

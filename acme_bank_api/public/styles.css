@@ -1,0 +1,171 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f4f7f9;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background-color: #1a365d;
+    color: white;
+    border-radius: 8px;
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.balance-section {
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+h2 {
+    color: #1a365d;
+    margin-bottom: 15px;
+    font-size: 1.8rem;
+}
+
+.balance {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #2c5282;
+}
+
+.actions-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.action-card {
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+h3 {
+    color: #1a365d;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    text-align: center;
+}
+
+.input-group {
+    display: flex;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.currency-symbol {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    background-color: #e2e8f0;
+    color: #333;
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    font-size: 1rem;
+}
+
+input:focus {
+    outline: none;
+    border-color: #3182ce;
+}
+
+.action-btn {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.deposit-btn {
+    background-color: #38a169;
+    color: white;
+}
+
+.deposit-btn:hover {
+    background-color: #2f855a;
+}
+
+.withdraw-btn {
+    background-color: #e53e3e;
+    color: white;
+}
+
+.withdraw-btn:hover {
+    background-color: #c53030;
+}
+
+.message {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+    min-height: 40px;
+}
+
+.success {
+    background-color: #c6f6d5;
+    color: #2f855a;
+}
+
+.error {
+    background-color: #fed7d7;
+    color: #c53030;
+}
+
+footer {
+    margin-top: 50px;
+    text-align: center;
+    color: #718096;
+}
+
+@media (max-width: 768px) {
+    .balance {
+        font-size: 2.5rem;
+    }
+
+    .actions-section {
+        grid-template-columns: 1fr;
+    }
+}

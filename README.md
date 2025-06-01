@@ -17,6 +17,7 @@ A lightweight gateway that:
 - **friendly-ui-replicator-clone/**: React Vite app representing the approval screen interface
 - **idv-mcp/**: Identity verification server integrated with 3rd party Identity Verification API
 - **visual-clone-ui-wizard/**: Bank dashboard application developed in Loveable
+- **acme_bank_-_api**: Fictional bank API server.
 
 
 ---
