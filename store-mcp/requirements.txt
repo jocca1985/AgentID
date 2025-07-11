@@ -1,0 +1,8 @@
+pydantic
+requests
+httpx
+mcp-server
+fastmcp
+uvicorn
+mcp
+mcp-cli

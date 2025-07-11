@@ -15,15 +15,15 @@ import java.util.Optional;
 @Slf4j
 @RequiredArgsConstructor
 public class PolicyApiClient {
-    
+
     private final RestTemplate restTemplate;
-    
+
     @Value("${policy.api.base-url:http://localhost:8000}")
     private String baseUrl;
-    
+
     @Value("${policy.api.bearer-token:}")
     private String bearerToken;
-    
+
     private HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -32,7 +32,7 @@ public class PolicyApiClient {
         }
         return headers;
     }
-    
+
     /**
      * Create or replace a policy
      * POST /policies
@@ -41,14 +41,14 @@ public class PolicyApiClient {
         try {
             String url = baseUrl + "/policies";
             HttpEntity<PolicyIn> request = new HttpEntity<>(policy, createHeaders());
-            
+
             log.info("Creating/replacing policy with id: {}", policy.getId());
             ResponseEntity<PolicyResponse> response = restTemplate.exchange(
-                url, HttpMethod.POST, request, PolicyResponse.class);
-            
+                    url, HttpMethod.POST, request, PolicyResponse.class);
+
             log.info("Policy created/replaced successfully: {}", response.getBody());
             return Optional.ofNullable(response.getBody());
-            
+
         } catch (HttpClientErrorException e) {
             log.error("Error creating/replacing policy: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
             return Optional.empty();
@@ -57,7 +57,7 @@ public class PolicyApiClient {
             return Optional.empty();
         }
     }
-    
+
     /**
      * Delete a policy
      * DELETE /policies/{policy_id}
@@ -66,15 +66,15 @@ public class PolicyApiClient {
         try {
             String url = baseUrl + "/policies/" + policyId;
             HttpEntity<?> request = new HttpEntity<>(createHeaders());
-            
+
             log.info("Deleting policy with id: {}", policyId);
             ResponseEntity<Void> response = restTemplate.exchange(
-                url, HttpMethod.DELETE, request, Void.class);
-            
+                    url, HttpMethod.DELETE, request, Void.class);
+
             boolean success = response.getStatusCode() == HttpStatus.NO_CONTENT;
             log.info("Policy deletion {}: {}", success ? "successful" : "failed", policyId);
             return success;
-            
+
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 log.warn("Policy not found for deletion: {}", policyId);
@@ -87,7 +87,7 @@ public class PolicyApiClient {
             return false;
         }
     }
-    
+
     /**
      * Validate incoming prompt against policies
      * POST /check/prompt
@@ -96,15 +96,15 @@ public class PolicyApiClient {
         try {
             String url = baseUrl + "/check/prompt";
             HttpEntity<CheckPromptIn> request = new HttpEntity<>(checkRequest, createHeaders());
-            
+
             log.info("Checking prompt against policy: {}", checkRequest.getPolicyId());
             ResponseEntity<DecisionOut> response = restTemplate.exchange(
-                url, HttpMethod.POST, request, DecisionOut.class);
-            
+                    url, HttpMethod.POST, request, DecisionOut.class);
+
             DecisionOut decision = response.getBody();
             log.info("Prompt check completed with alignment: {}", decision != null ? decision.getAlignment() : "null");
             return Optional.ofNullable(decision);
-            
+
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 log.warn("Policy not found for prompt check: {}", checkRequest.getPolicyId());
@@ -117,7 +117,7 @@ public class PolicyApiClient {
             return Optional.empty();
         }
     }
-    
+
     /**
      * Validate LLM output and tool actions against policies
      * POST /check/output
@@ -126,15 +126,15 @@ public class PolicyApiClient {
         try {
             String url = baseUrl + "/check/output";
             HttpEntity<CheckOutputRequest> request = new HttpEntity<>(checkRequest, createHeaders());
-            
+
             log.info("Checking LLM output against policy: {}", checkRequest.getPolicyId());
             ResponseEntity<DecisionOut> response = restTemplate.exchange(
-                url, HttpMethod.POST, request, DecisionOut.class);
-            
+                    url, HttpMethod.POST, request, DecisionOut.class);
+
             DecisionOut decision = response.getBody();
             log.info("Output check completed with alignment: {}", decision != null ? decision.getAlignment() : "null");
             return Optional.ofNullable(decision);
-            
+
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 log.warn("Policy not found for output check: {}", checkRequest.getPolicyId());
@@ -147,7 +147,7 @@ public class PolicyApiClient {
             return Optional.empty();
         }
     }
-    
+
     /**
      * Check prompt against all policies (convenience method)
      */
@@ -157,11 +157,11 @@ public class PolicyApiClient {
                 .prompt(prompt)
                 .build());
     }
-    
+
     /**
      * Check output against all policies (convenience method)
      */
-    public Optional<DecisionOut> checkOutputAgainstAllPolicies(String llmOutput, java.util.List<Action> actions) {
+    public Optional<DecisionOut> checkOutputAgainstAllPolicies(String llmOutput, java.util.List<ActionPlan> actions) {
         return checkOutput(CheckOutputRequest.builder()
                 .policyId(null) // null means check against all policies
                 .llmOutput(llmOutput)

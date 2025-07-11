@@ -83,7 +83,7 @@ public class PolicyTestController {
         Optional<DecisionOut> promptDecision = policyApiClient.checkPromptAgainstAllPolicies(testPrompt);
         
         // 3. Test an output with actions
-        List<Action> actions = List.of(Action.builder()
+        List<ActionPlan> actions = List.of(ActionPlan.builder()
                 .tool("bank.transfer")
                 .parameters(Map.of("amount", 20000, "currency", "USD", "to", "123456789"))
                 .build());

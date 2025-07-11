@@ -64,7 +64,7 @@ public class AsyncProcessingService {
         CompletableFuture.runAsync(() -> {
             try {
                 log.info("Processing prompt for session {}: {}", sessionId, prompt);
-                ActionFeedbackResponse result = actionControllerService.testControllerAgent(prompt);
+                ActionFeedbackResponse result = actionControllerService.testControllerAgent(prompt, sessionId);
                 
                 session.setResult(result);
                 session.setStatus(ProcessingStatus.COMPLETED);

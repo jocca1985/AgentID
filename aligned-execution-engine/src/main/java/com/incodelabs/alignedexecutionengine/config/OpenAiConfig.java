@@ -18,11 +18,7 @@ public class OpenAiConfig {
         List<ToolCallbackProvider> toolProviders = allToolProviders != null ? allToolProviders : new ArrayList<>();
         return builder
                 .defaultSystem("You are helpful assistant that helps users with their tasks.")
-                .defaultToolCallbacks(toolProviders
-                        .stream()
-                        .filter(t -> !t.getClass().getName().contains("MethodToolCallbackProvider"))
-                        .toList()
-                        .toArray(new ToolCallbackProvider[0]))
+                .defaultToolCallbacks(toolProviders.toArray(new ToolCallbackProvider[0]))
                 .defaultOptions(OpenAiChatOptions.builder()
                         .model(OpenAiApi.ChatModel.GPT_4_O)
                         .temperature(0.3)

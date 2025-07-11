@@ -1,0 +1,14 @@
+[project]
+name = "store-endpoint"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.13",
+    "mcp[cli]>=1.9.4",
+    "mount>=1.0.0",
+    "requests>=2.32.4",
+    "starlette>=0.46.2",
+    "websockets>=15.0.1",
+]
