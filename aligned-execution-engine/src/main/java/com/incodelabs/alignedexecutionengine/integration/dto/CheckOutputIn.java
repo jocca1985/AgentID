@@ -16,5 +16,5 @@ import java.util.ArrayList;
 public class CheckOutputIn {
     private String policyId;
     private String llmOutput;
-    private ArrayList<Action> actions;
+    private ArrayList<ActionPlan> actions;
 }

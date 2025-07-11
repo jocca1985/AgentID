@@ -27,7 +27,7 @@ public class McpHealthCheckService {
     private volatile String lastSuccessTime = "Never";
     private volatile String connectionStatus = "UNKNOWN";
     
-    @Scheduled(fixedRate = 28000) // Every 25 seconds
+//    @Scheduled(fixedRate = 28000) // Every 25 seconds
     public void performHealthCheck() {
         long checkNumber = totalHealthChecks.incrementAndGet();
         String currentTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_TIME);

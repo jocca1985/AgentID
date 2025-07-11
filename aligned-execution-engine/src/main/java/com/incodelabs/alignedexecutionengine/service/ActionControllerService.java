@@ -9,7 +9,6 @@ import com.incodelabs.alignedexecutionengine.integration.verification.dto.TokenV
 import com.incodelabs.alignedexecutionengine.integration.verification.dto.VerificationStatusResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.antlr.runtime.Token;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -32,13 +31,20 @@ public class ActionControllerService {
     private final McpClientService mcpClientService;
     private final VerificationService verificationService;
     private final EmailClientApi emailClientApi;
+    private final QuerySessionService querySessionService;
+    private final ActionPlanService actionPlanService;
+    private final PolicyCheckService policyCheckService;
+    private final ToolRequestService toolRequestService;
+    private final FeedbackService feedbackService;
     
     private static final int MAX_FEEDBACK_LOOPS = 50;
     private String currentVerificationToken; // Store token for use in tool parameters
 
-    public ActionFeedbackResponse testControllerAgent(String prompt) {
+    // Julio - added sessionID parameter so we can log with logging service
+    public ActionFeedbackResponse testControllerAgent(String prompt, String sessionID) {
         ActionFeedbackResponse feedback = ActionFeedbackResponse.builder().build();
-        
+        // Julio
+        querySessionService.startQuerySession(prompt, sessionID);
         try {
             // Step 1: Validate initial prompt
             Optional<DecisionOut> promptValidation = validateClientPrompt(prompt);
@@ -46,6 +52,7 @@ public class ActionControllerService {
             if (promptValidation.isEmpty()) {
                 log.warn("Prompt validation failed: {}", prompt);
                 feedback.setErrorMessage("Prompt validation failed");
+                querySessionService.updateSessionPolicy(sessionID, "failed", "Prompt validation failed");
                 return feedback;
             }
             
@@ -54,13 +61,17 @@ public class ActionControllerService {
             
             if (PerPolicy.AlignmentType.deny.equals(promptDecision.getAlignment())) {
                 feedback.setCompleted(true);
+                querySessionService.updateSessionPolicy(sessionID, "deny", "");
                 return feedback;
             }
             
             // Handle IDV case
             String processedPrompt = prompt;
+            Boolean idvTriggered = false;
             if (PerPolicy.AlignmentType.idv.equals(promptDecision.getAlignment())) {
-                feedback.getExecutionSteps().add(Action.builder().tool("idv").build());
+                querySessionService.updateSessionPolicy(sessionID, "idv", "");
+                idvTriggered = true;
+                feedback.getExecutionSteps().add(ActionPlan.builder().tool("idv").build());
                 
                 try {
                     // Complete IDV process
@@ -80,26 +91,40 @@ public class ActionControllerService {
                 }
             }
 
-            feedback.setExecutionSteps(new ArrayList<>(List.of(Action.builder().tool("create-plan").build())));
+            if (!idvTriggered) {
+                querySessionService.updateSessionPolicy(sessionID, "allow", "");
+            }
+
+            feedback.setExecutionSteps(new ArrayList<>(List.of(ActionPlan.builder().tool("create-plan").build())));
             // Step 2: Start feedback loop if prompt is allowed.
-            return executeFeedbackLoop(processedPrompt, feedback);
+
+            // Julio - Changed just to log end of query session
+            ActionFeedbackResponse result = executeFeedbackLoop(processedPrompt, feedback, sessionID);
+            querySessionService.endQuerySession(sessionID);
+            return result;
             
         } catch (Exception e) {
             log.error("Error in controller agent execution", e);
             feedback.setErrorMessage("Execution error: " + e.getMessage());
+            //Julio
+            querySessionService.endQuerySession(sessionID);
             return feedback;
         }
     }
     
-    private ActionFeedbackResponse executeFeedbackLoop(String prompt, ActionFeedbackResponse feedback) {
+    // Julio - added sessionID parameter so we can log with logging service
+    private ActionFeedbackResponse executeFeedbackLoop(String prompt, ActionFeedbackResponse feedback, String sessionID) {
         String currentPrompt = prompt;
         
         // Continue while there are execution steps remaining
         for (int iteration = 1; iteration <= MAX_FEEDBACK_LOOPS && !feedback.getExecutionSteps().isEmpty(); iteration++) {
+            // Julio
+            String actionID = actionPlanService.createActionPlan(sessionID, iteration);
+
             feedback.setLoopIteration(iteration);
             
             // Get next execution step
-            Action currentStep = feedback.getExecutionSteps().removeFirst();
+            ActionPlan currentStep = feedback.getExecutionSteps().removeFirst();
             log.info("Executing step: {}", currentStep);
 
             
@@ -107,15 +132,27 @@ public class ActionControllerService {
             CheckOutputIn actionPlan = feedback.getActionPlan() == null ? prepareActionPlan(currentPrompt) : feedback.getActionPlan();
             feedback.setActionPlan(actionPlan);
 
-            
             if (actionPlan == null || actionPlan.getLlmOutput() == null) {
                 feedback.setErrorMessage("Failed to prepare action plan");
+                // Julio
+                actionPlanService.updateActionPlan(actionID, "Failed to prepare action plan");
                 return feedback;
             }
+            // Julio
+            actionPlanService.updateActionPlan(actionID, actionPlan.getLlmOutput());
 
             feedback.setExecutionSteps(new ArrayList<>(actionPlan.getActions()));
+
+            //Julio
+            for (ActionPlan action : actionPlan.getActions()) {
+                // log all tools with pending tool status. no id yet
+                toolRequestService.createToolRequest(actionID, action.getTool(), action.getParameters().toString());
+            }
             
             // Validate action plan with policy
+            // Julio
+            String policyCheckId = policyCheckService.createPolicyCheck(actionID);
+
             CheckOutputRequest policyRequest = CheckOutputRequest.builder()
                     .llmOutput(actionPlan.getLlmOutput())
                     .actions(actionPlan.getActions() != null ? actionPlan.getActions() : Collections.emptyList())
@@ -126,6 +163,8 @@ public class ActionControllerService {
             Optional<DecisionOut> policyDecision = policyApi.checkOutput(policyRequest);
             if (policyDecision.isEmpty()) {
                 feedback.setErrorMessage("Policy validation failed");
+                // Julio
+                policyCheckService.completePolicyCheck(policyCheckId, "error: null policy decision", "N/Aa: policy validation error", "N/A: policy validation error");
                 return feedback;
             }
             
@@ -134,13 +173,22 @@ public class ActionControllerService {
             
             if (PerPolicy.AlignmentType.deny.equals(outputDecision.getAlignment())) {
                 feedback.setCompleted(true);
+                // Julio
+                policyCheckService.completePolicyCheck(policyCheckId, "completed", "deny", "");
                 return feedback;
             }
+
+
             TokenValidationResponse tokenValidation = new TokenValidationResponse();
             if (PerPolicy.AlignmentType.idv.equals(outputDecision.getAlignment())) {
                 tokenValidation.setValid(false);
                 tokenValidation.setMessage("null token");
                 tokenValidation.setSuccess(false);
+                policyCheckService.completePolicyCheck(policyCheckId, "completed", "idv", "");
+
+                //Julio
+                String toolRequestId = toolRequestService.createToolRequest(actionID, "idv", null);
+                toolRequestService.initiateToolExecution(toolRequestId, "idv");
                 if (currentVerificationToken != null) {
                     tokenValidation = verificationService.validateToken(currentVerificationToken);
                 }
@@ -150,26 +198,52 @@ public class ActionControllerService {
 
                 if (currentVerificationToken == null || currentVerificationToken.isEmpty()) {
                     feedback.setErrorMessage("IDV process failed, no token available");
+                    //Julio
+                    toolRequestService.completeToolExecution(toolRequestId, "failed", "Identity verification completed successfully");
+
                     return feedback;
                 }
+                //Julio
+                toolRequestService.completeToolExecution(toolRequestId, "success", "Identity verification completed successfully");
+
                 outputDecision.setAlignment(PerPolicy.AlignmentType.allow);
             }
-            
+
             if (PerPolicy.AlignmentType.allow.equals(outputDecision.getAlignment())) {
                 // Execute tools if available
+                policyCheckService.completePolicyCheck(policyCheckId, "completed", "allow", "");
                 if (!CollectionUtils.isEmpty(actionPlan.getActions())) {
-                    for (Action action : actionPlan.getActions()) {
+                    for (ActionPlan action : actionPlan.getActions()) {
+                        //Julio
+                        // start tool exec should find correct tool request and assign id to it
+                        String toolRequestId = toolRequestService.initiateToolExecution(actionID, action.getTool());
+
                         String toolResult = executeToolAction(action, feedback);
+                        //Julio
+                        toolRequestService.completeToolExecution(toolRequestId, "success", toolResult);
+                        
+                        // Julio - added feedback lifecycle logging
+                        feedbackService.createFeedbackRequest(actionID);
+
                         feedback.getToolExecutionResults().put(action.getTool(), toolResult);
                         feedback.setExecutionSteps(actionPlan.getActions().stream().filter(a -> !a.getTool().equals(action.getTool())).collect(Collectors.toList()));
                         // Add any new execution steps based on tool results if needed
                     }
                     addNewExecutionStepsIfNeeded(feedback);
+                    //Julio
                 } else {
                     // No actions to execute for this step
                     log.info("No actions to execute for step: {}", currentStep);
                 }
             }
+            if (feedback.getExecutionSteps().isEmpty()) {
+                // No more execution steps - end feedback and stop looping, add actual feedback as param
+                feedbackService.completeFeedbackRequest(actionID, feedback.getFinalResult(), "end_loop");
+            } else {
+                // More execution steps available - continue looping, add actual feedback as param
+                feedbackService.completeFeedbackRequest(actionID, feedback.getFinalResult(), "continue_loop");
+            }
+            // Julio
         }
         
         // Mark as completed when all execution steps are done
@@ -177,7 +251,7 @@ public class ActionControllerService {
         return feedback;
     }
     
-    private String executeToolAction(Action action, ActionFeedbackResponse feedback) {
+    private String executeToolAction(ActionPlan action, ActionFeedbackResponse feedback) {
         String toolInstruction = formatToolInstruction(action);
         feedback.getToolExecutions().add("Executing: " + toolInstruction);
         
@@ -193,7 +267,7 @@ public class ActionControllerService {
         return result;
     }
     
-    private String formatToolInstruction(Action action) {
+    private String formatToolInstruction(ActionPlan action) {
         StringBuilder instruction = new StringBuilder();
         instruction.append("Execute tool: ").append(action.getTool());
         
@@ -223,7 +297,7 @@ public class ActionControllerService {
                 .stream()
                 .map(entry -> entry.getKey() + "=" + entry.getValue())
                 .collect(Collectors.joining(", "));
-        String previousPlannedActions = feedback.getActionPlan().getActions().stream().map(Action::getTool).collect(Collectors.joining(", "));
+        String previousPlannedActions = feedback.getActionPlan().getActions().stream().map(ActionPlan::getTool).collect(Collectors.joining(", "));
         String previousActionPlanInDetail = feedback.getActionPlan().getLlmOutput();
         String userPrompt = "Previous plan: {" + previousActionPlanInDetail + "}. Planned actions: {" + previousPlannedActions + "}. Result of executed actions: {" + result + "}. Should there be any new actions planned based on this result? If yes, please provide a new plan.";
         CheckOutputIn newPlan = openAiChatClient.prompt()

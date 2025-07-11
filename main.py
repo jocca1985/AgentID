@@ -101,14 +101,13 @@ def judge(policies_block: str, stage: str, payload) -> tuple[str, str]:
     )
 
     client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=os.getenv("OPENROUTER_API_KEY"),
+        api_key=os.getenv("AEE_OPENAI_API_KEY")
     )
     completion = client.chat.completions.create(
-        model="anthropic/claude-sonnet-4",
+        model="gpt-4o-mini",
         messages=[{"role":"system","content":system},
                   {"role":"user","content":user}],
-        response_format={"type":"json"}
+        response_format={"type":"json_object"}
     )
     raw = completion.choices[0].message.content.strip()
     if raw.startswith("```"):

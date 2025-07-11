@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class CheckPromptIn {
+
     @JsonProperty("policy_id")
     private String policyId;
     private String prompt;

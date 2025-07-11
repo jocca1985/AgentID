@@ -22,5 +22,5 @@ public class CheckOutputRequest {
     private String llmOutput;
 
     @Builder.Default
-    private List<Action> actions = Collections.emptyList();
+    private List<ActionPlan> actions = Collections.emptyList();
 }

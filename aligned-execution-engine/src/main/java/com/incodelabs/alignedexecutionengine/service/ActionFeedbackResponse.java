@@ -1,6 +1,6 @@
 package com.incodelabs.alignedexecutionengine.service;
 
-import com.incodelabs.alignedexecutionengine.integration.dto.Action;
+import com.incodelabs.alignedexecutionengine.integration.dto.ActionPlan;
 import com.incodelabs.alignedexecutionengine.integration.dto.CheckOutputIn;
 import com.incodelabs.alignedexecutionengine.integration.dto.CheckOutputRequest;
 import com.incodelabs.alignedexecutionengine.integration.dto.DecisionOut;
@@ -25,7 +25,7 @@ public class ActionFeedbackResponse {
     private DecisionOut outputFeedback;
     private String finalResult;
     @Builder.Default
-    private List<Action> executionSteps = new ArrayList<>();
+    private List<ActionPlan> executionSteps = new ArrayList<>();
     @Builder.Default
     private List<String> toolExecutions = new ArrayList<>();
     @Builder.Default

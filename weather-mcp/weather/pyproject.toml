@@ -1,0 +1,14 @@
+[project]
+name = "weather"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp-playground",
+    "mcp[cli]>=1.9.4",
+]
+
+[tool.uv.sources]
+mcp-playground = { git = "https://github.com/zanetworker/mcp-sse-client-python.git" }
