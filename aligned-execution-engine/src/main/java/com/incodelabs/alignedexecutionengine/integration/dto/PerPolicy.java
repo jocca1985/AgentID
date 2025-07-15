@@ -19,6 +19,6 @@ public class PerPolicy {
     private String reason;
     
     public enum AlignmentType {
-        allow, deny, idv
+        allow, deny, idv, hil
     }
 }

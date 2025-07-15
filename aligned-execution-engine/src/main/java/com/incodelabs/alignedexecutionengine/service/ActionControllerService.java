@@ -13,6 +13,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,7 +42,7 @@ public class ActionControllerService {
     private String currentVerificationToken; // Store token for use in tool parameters
 
     // Julio - added sessionID parameter so we can log with logging service
-    public ActionFeedbackResponse testControllerAgent(String prompt, String sessionID) {
+    public ActionFeedbackResponse testControllerAgent(String prompt, String sessionID, Boolean resume) {
         ActionFeedbackResponse feedback = ActionFeedbackResponse.builder().build();
         // Julio
         querySessionService.startQuerySession(prompt, sessionID);
@@ -111,10 +112,14 @@ public class ActionControllerService {
             return feedback;
         }
     }
+
+    // Julio -Default no resume constructor
+    public ActionFeedbackResponse testControllerAgent(String prompt, String sessionID){
+        return testControllerAgent(prompt, sessionID, false);
+    }
     
     // Julio - added sessionID parameter so we can log with logging service
     private ActionFeedbackResponse executeFeedbackLoop(String prompt, ActionFeedbackResponse feedback, String sessionID) {
-        String currentPrompt = prompt;
         
         // Continue while there are execution steps remaining
         for (int iteration = 1; iteration <= MAX_FEEDBACK_LOOPS && !feedback.getExecutionSteps().isEmpty(); iteration++) {
@@ -129,7 +134,7 @@ public class ActionControllerService {
 
             
             // For other steps, prepare action plan
-            CheckOutputIn actionPlan = feedback.getActionPlan() == null ? prepareActionPlan(currentPrompt) : feedback.getActionPlan();
+            CheckOutputIn actionPlan = feedback.getActionPlan() == null ? prepareActionPlan(prompt) : feedback.getActionPlan();
             feedback.setActionPlan(actionPlan);
 
             if (actionPlan == null || actionPlan.getLlmOutput() == null) {
@@ -167,8 +172,9 @@ public class ActionControllerService {
                 policyCheckService.completePolicyCheck(policyCheckId, "error: null policy decision", "N/Aa: policy validation error", "N/A: policy validation error");
                 return feedback;
             }
-            
+
             DecisionOut outputDecision = policyDecision.get();
+            //DecisionOut outputDecision = DecisionOut.builder().alignment(PerPolicy.AlignmentType.hil).build();
             feedback.setOutputFeedback(outputDecision);
             
             if (PerPolicy.AlignmentType.deny.equals(outputDecision.getAlignment())) {
@@ -184,11 +190,12 @@ public class ActionControllerService {
                 tokenValidation.setValid(false);
                 tokenValidation.setMessage("null token");
                 tokenValidation.setSuccess(false);
-                policyCheckService.completePolicyCheck(policyCheckId, "completed", "idv", "");
 
                 //Julio
+                policyCheckService.completePolicyCheck(policyCheckId, "completed", "idv", "");
                 String toolRequestId = toolRequestService.createToolRequest(actionID, "idv", null);
                 toolRequestService.initiateToolExecution(toolRequestId, "idv");
+
                 if (currentVerificationToken != null) {
                     tokenValidation = verificationService.validateToken(currentVerificationToken);
                 }
@@ -207,6 +214,24 @@ public class ActionControllerService {
                 toolRequestService.completeToolExecution(toolRequestId, "success", "Identity verification completed successfully");
 
                 outputDecision.setAlignment(PerPolicy.AlignmentType.allow);
+            }
+
+            if (PerPolicy.AlignmentType.hil.equals(outputDecision.getAlignment())) {
+                 // Generate HIL feedback response
+                 policyCheckService.completePolicyCheck(policyCheckId, "completed", "hil", "");
+                
+                 // Create HIL feedback response using the previous action plan
+                 CheckOutputIn hilResponse = generateHilFeedbackResponse(prompt, actionPlan, feedback);
+                 
+                 // Set the HIL response in feedback and mark as completed
+                 feedback.setActionPlan(hilResponse); // Use actionPlan field instead of hilFeedbackResponse
+                 feedback.setCompleted(true);
+                 
+                 // Log HIL request
+                 String toolRequestId = toolRequestService.createToolRequest(actionID, "hil_feedback", "HIL feedback requested");
+                 toolRequestService.completeToolExecution(toolRequestId, "completed", "HIL feedback generated");
+                 
+                 return feedback;
             }
 
             if (PerPolicy.AlignmentType.allow.equals(outputDecision.getAlignment())) {
@@ -319,6 +344,26 @@ public class ActionControllerService {
         return openAiChatClient.prompt()
                 .system(promptsUtil.actionPlanSystemPrompt())
                 .user(prompt)
+                .call()
+                .entity(CheckOutputIn.class);
+    }
+
+    // Julio - Gets breakdown and follow up questions for user to be displayed during HIL feedback request
+    private CheckOutputIn generateHilFeedbackResponse(String prompt, CheckOutputIn actionPlan, ActionFeedbackResponse previousFeedback) {
+        // Build context for HIL prompt
+        String context = ("Initial User Request: ") + (prompt) + ("\n\n");
+        context += ("Proposed Action Plan: ") + (actionPlan.getLlmOutput()) + ("\n\n");
+        
+        if (actionPlan.getActions() != null) {
+            context += ("Proposed tool executions: ");
+            for (ActionPlan action : actionPlan.getActions()) {
+                context += (action.getTool()) + (" ");
+            }
+        }
+        
+        return openAiChatClient.prompt()
+                .system(promptsUtil.hilFeedbackPrompt())
+                .user(context)
                 .call()
                 .entity(CheckOutputIn.class);
     }

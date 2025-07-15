@@ -129,6 +129,11 @@ public class TestActionController {
         }
     }
 
+    @GetMapping("/test-hil-feedback")
+    public Map<String, String> testHilFeedback() {
+        return Map.of( "message", "Hello, world!");
+    }
+
     @GetMapping("/test-mcp-client")
     public Map<String, String> testMcpClient() {
         String response = mcpClientService.checkBalance();
