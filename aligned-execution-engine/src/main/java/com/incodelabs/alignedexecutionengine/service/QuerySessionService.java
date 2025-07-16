@@ -113,4 +113,29 @@ public class QuerySessionService {
     public LocalDateTime getCurrentTimestamp() {
         return LocalDateTime.now();
     }
+
+    /**
+     * Gets the paused flag for a session
+     * @param sessionId The session ID to retrieve
+     * @return The paused flag
+     */
+    public Boolean getQuerySessionPausedBoolean(String sessionId) {
+        return querySessionRepository.getQuerySessionPausedBoolean(sessionId);
+    }
+
+    /**
+     * Pauses a query session by setting the paused flag to true
+     * @param sessionId The session ID to pause
+     */
+    public void pauseQuerySession(String sessionId) {
+        querySessionRepository.pauseQuerySession(sessionId);
+    }
+
+    /**
+     * Resumes a query session by setting the paused flag to false
+     * @param sessionId The session ID to resume
+     */
+    public void resumeQuerySession(String sessionId) {
+        querySessionRepository.resumeQuerySession(sessionId);
+    }
 }

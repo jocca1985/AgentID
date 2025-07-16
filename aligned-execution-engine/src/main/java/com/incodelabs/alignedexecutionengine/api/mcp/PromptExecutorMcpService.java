@@ -66,6 +66,13 @@ public class PromptExecutorMcpService {
                 return "Unknown session status for: " + sessionId;
         }
     }
+
+    @Tool(name = "resume-processing", description = "Resume the session using the session ID returned by process-async and the feedback from the user")
+    public String resumeProcessing(@ToolParam String sessionId, @ToolParam String feedback) {
+         // calls on asyncprocessing service to resume processing, however with a resume flag set to true
+         asyncProcessingService.resumeAsyncProcessing(sessionId, feedback);
+         return String.format("Processing resumed and feedback provided. Session ID: %s. Use get-results tool with this session ID to check status and retrieve results.", sessionId);
+    }
     
     private String formatResult(ActionFeedbackResponse result) {
         if (result == null) {

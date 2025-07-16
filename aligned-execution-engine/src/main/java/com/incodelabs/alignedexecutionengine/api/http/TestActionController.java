@@ -6,6 +6,8 @@ import com.incodelabs.alignedexecutionengine.service.McpClientService;
 import com.incodelabs.alignedexecutionengine.service.McpHealthCheckService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
+@Slf4j
 @RequiredArgsConstructor
 public class TestActionController {
     private final AsyncProcessingService asyncProcessingService;
@@ -129,9 +132,16 @@ public class TestActionController {
         }
     }
 
-    @GetMapping("/test-hil-feedback")
-    public Map<String, String> testHilFeedback() {
-        return Map.of( "message", "Hello, world!");
+    @PostMapping("/resume-processing/{sessionId}")
+    public Map<String, String> testHilFeedback(@PathVariable String sessionId, @RequestBody String feedback) {
+        // calls on asyncprocessing service to resume processing, however with a resume flag set to true
+        log.info("Resuming processing for session: {}", sessionId);
+        asyncProcessingService.resumeAsyncProcessing(sessionId, feedback);
+        return Map.of(
+            "message", "Resuming processing...",
+            "sessionId", sessionId,
+            "status", "PROCESSING"
+        );
     }
 
     @GetMapping("/test-mcp-client")

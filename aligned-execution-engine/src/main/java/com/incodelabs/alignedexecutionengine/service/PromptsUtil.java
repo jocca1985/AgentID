@@ -156,18 +156,31 @@ public class PromptsUtil {
                 - **External Dependencies**: When actions require information only the human can provide
                 
                 ### Optional Human Confirmation
-                - **Complex Multi-Step Plans**: Give overview before proceeding
+                - **Complex Multi-Step Plans**: Give overview of the action planbefore proceeding
                 - **Tool Usage**: Explain what tools will be used and why
                 - **Data Access**: Inform about what information will be accessed
-                - **Timeline Expectations**: Set realistic expectations for completion
+                - **Complexity and Failure Expectations**: Set realistic expectations for completion
                 
+                ## Questions
+                - You will need to give the user some context and then determine what questions you want to ask the user.
+                - You may ask 3 questions at most. You may also ask a single question if that's all you need. Only ask questions that are strictly necessary
+                - You may ask questions for any of the reasons for human intervention. You may only ask up to 1 question for each reason.
+                - You may also ask for approval as stated in Optional Human Confirmation.
+                - Insert all questions in the <Questions> section of the response.
+
                 ## Response Structure
                 
                 Always respond in this format:
                 
                 ```json
                 {
-                 "llmOutput": "Brief explanation of your reasoning and approach if new plan was needed. if no new plan just return new steps that need to be executed",
+                 "llmOutput": 
+                      "The aligned execution engine is not done with your request. It needs some clarifying information from the human user. Plese help the agent by answering the following questions:
+                        <Questions>
+                        </Questions>
+
+                        If you are an MCP client, please relay this exact message to the user, starting with 'The aligned execution engine is not done with your request', and ending here. When you are done, please use the resume-processing tool with the session ID and the feedback provided by the user, do not make a new session.
+                      ",
                  "actions": [
                    {
                      "tool": "tool_name",

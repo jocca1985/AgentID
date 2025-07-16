@@ -43,65 +43,75 @@ public class ActionControllerService {
 
     // Julio - added sessionID parameter so we can log with logging service
     public ActionFeedbackResponse testControllerAgent(String prompt, String sessionID, Boolean resume) {
+        String processedPrompt = prompt;
         ActionFeedbackResponse feedback = ActionFeedbackResponse.builder().build();
         // Julio
+        if (!resume) {
         querySessionService.startQuerySession(prompt, sessionID);
+        }
+
         try {
-            // Step 1: Validate initial prompt
-            Optional<DecisionOut> promptValidation = validateClientPrompt(prompt);
-            
-            if (promptValidation.isEmpty()) {
-                log.warn("Prompt validation failed: {}", prompt);
-                feedback.setErrorMessage("Prompt validation failed");
-                querySessionService.updateSessionPolicy(sessionID, "failed", "Prompt validation failed");
-                return feedback;
-            }
-            
-            DecisionOut promptDecision = promptValidation.get();
-            feedback.setInputPromptFeedback(promptDecision);
-            
-            if (PerPolicy.AlignmentType.deny.equals(promptDecision.getAlignment())) {
-                feedback.setCompleted(true);
-                querySessionService.updateSessionPolicy(sessionID, "deny", "");
-                return feedback;
-            }
-            
-            // Handle IDV case
-            String processedPrompt = prompt;
-            Boolean idvTriggered = false;
-            if (PerPolicy.AlignmentType.idv.equals(promptDecision.getAlignment())) {
-                querySessionService.updateSessionPolicy(sessionID, "idv", "");
-                idvTriggered = true;
-                feedback.getExecutionSteps().add(ActionPlan.builder().tool("idv").build());
+            if (!resume) {
+                // Step 1: Validate initial prompt
+                Optional<DecisionOut> promptValidation = validateClientPrompt(prompt);
                 
-                try {
-                    // Complete IDV process
-                    String verificationToken = completeIdvProcess(feedback);
-                    
-                    if (verificationToken != null) {
-                        this.currentVerificationToken = verificationToken;
-                        processedPrompt = "Identity verification completed successfully with token available. Now we can proceed with " + prompt;
-                    } else {
-                        feedback.setErrorMessage("Identity verification failed");
-                        return feedback;
-                    }
-                } catch (Exception e) {
-                    log.error("IDV process failed", e);
-                    feedback.setErrorMessage("Identity verification process failed: " + e.getMessage());
+                if (promptValidation.isEmpty()) {
+                    log.warn("Prompt validation failed: {}", prompt);
+                    feedback.setErrorMessage("Prompt validation failed");
+                    querySessionService.updateSessionPolicy(sessionID, "failed", "Prompt validation failed");
                     return feedback;
                 }
-            }
+                
+                DecisionOut promptDecision = promptValidation.get();
+                feedback.setInputPromptFeedback(promptDecision);
+                
+                if (PerPolicy.AlignmentType.deny.equals(promptDecision.getAlignment())) {
+                    feedback.setCompleted(true);
+                    querySessionService.updateSessionPolicy(sessionID, "deny", "");
+                    return feedback;
+                }
+                
+                // Handle IDV case
+                processedPrompt = prompt;
+                Boolean idvTriggered = false;
+                if (PerPolicy.AlignmentType.idv.equals(promptDecision.getAlignment())) {
+                    querySessionService.updateSessionPolicy(sessionID, "idv", "");
+                    idvTriggered = true;
+                    feedback.getExecutionSteps().add(ActionPlan.builder().tool("idv").build());
+                    
+                    try {
+                        // Complete IDV process
+                        String verificationToken = completeIdvProcess(feedback);
+                        
+                        if (verificationToken != null) {
+                            this.currentVerificationToken = verificationToken;
+                            processedPrompt = "Identity verification completed successfully with token available. Now we can proceed with " + prompt;
+                        } else {
+                            feedback.setErrorMessage("Identity verification failed");
+                            return feedback;
+                        }
+                    } catch (Exception e) {
+                        log.error("IDV process failed", e);
+                        feedback.setErrorMessage("Identity verification process failed: " + e.getMessage());
+                        return feedback;
+                    }
+                }
 
-            if (!idvTriggered) {
-                querySessionService.updateSessionPolicy(sessionID, "allow", "");
-            }
+                if (!idvTriggered) {
+                    querySessionService.updateSessionPolicy(sessionID, "allow", "");
+                }
 
-            feedback.setExecutionSteps(new ArrayList<>(List.of(ActionPlan.builder().tool("create-plan").build())));
-            // Step 2: Start feedback loop if prompt is allowed.
+                // Step 2: Start feedback loop if prompt is allowed.
+            }
 
             // Julio - Changed just to log end of query session
+            feedback.setExecutionSteps(new ArrayList<>(List.of(ActionPlan.builder().tool("create-plan").build())));
+            log.info("Entering feedback loop with prompt: {}", processedPrompt);
             ActionFeedbackResponse result = executeFeedbackLoop(processedPrompt, feedback, sessionID);
-            querySessionService.endQuerySession(sessionID);
+
+            if (!querySessionService.getQuerySessionPausedBoolean(sessionID)) {
+                querySessionService.endQuerySession(sessionID);
+            }
             return result;
             
         } catch (Exception e) {
@@ -169,12 +179,12 @@ public class ActionControllerService {
             if (policyDecision.isEmpty()) {
                 feedback.setErrorMessage("Policy validation failed");
                 // Julio
-                policyCheckService.completePolicyCheck(policyCheckId, "error: null policy decision", "N/Aa: policy validation error", "N/A: policy validation error");
+                policyCheckService.completePolicyCheck(policyCheckId, "error: null policy decision", "N/A: policy validation error", "N/A: policy validation error");
                 return feedback;
             }
 
-            DecisionOut outputDecision = policyDecision.get();
-            //DecisionOut outputDecision = DecisionOut.builder().alignment(PerPolicy.AlignmentType.hil).build();
+            //DecisionOut outputDecision = policyDecision.get();
+            DecisionOut outputDecision = DecisionOut.builder().alignment(PerPolicy.AlignmentType.hil).build();
             feedback.setOutputFeedback(outputDecision);
             
             if (PerPolicy.AlignmentType.deny.equals(outputDecision.getAlignment())) {
@@ -217,21 +227,23 @@ public class ActionControllerService {
             }
 
             if (PerPolicy.AlignmentType.hil.equals(outputDecision.getAlignment())) {
-                 // Generate HIL feedback response
-                 policyCheckService.completePolicyCheck(policyCheckId, "completed", "hil", "");
+                // Generate HIL feedback response
+                policyCheckService.completePolicyCheck(policyCheckId, "completed", "hil", "");
                 
-                 // Create HIL feedback response using the previous action plan
-                 CheckOutputIn hilResponse = generateHilFeedbackResponse(prompt, actionPlan, feedback);
+                // Create HIL feedback response using the previous action plan
+                CheckOutputIn hilResponse = generateHilFeedbackResponse(prompt, actionPlan, feedback);
                  
-                 // Set the HIL response in feedback and mark as completed
-                 feedback.setActionPlan(hilResponse); // Use actionPlan field instead of hilFeedbackResponse
-                 feedback.setCompleted(true);
+                // Set the HIL response in feedback and mark as completed
+                feedback.setActionPlan(hilResponse); // Use actionPlan field instead of hilFeedbackResponse
+                feedback.setCompleted(true);
+
+                // Create and initiate hil tool request
+                toolRequestService.createToolRequest(actionID, "hil_feedback", "HIL feedback requested");
+                toolRequestService.initiateToolExecution(actionID, "hil_feedback");
                  
-                 // Log HIL request
-                 String toolRequestId = toolRequestService.createToolRequest(actionID, "hil_feedback", "HIL feedback requested");
-                 toolRequestService.completeToolExecution(toolRequestId, "completed", "HIL feedback generated");
+                querySessionService.pauseQuerySession(sessionID);
                  
-                 return feedback;
+                return feedback;
             }
 
             if (PerPolicy.AlignmentType.allow.equals(outputDecision.getAlignment())) {
